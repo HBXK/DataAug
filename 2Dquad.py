@@ -94,7 +94,7 @@ def design_matrix_orig(thetas, degree):
 
     # Generate all possible combinations of (k1, k2, k3) with sum(|k1| + |k2| + |k3|) == degree
     #modified for invariant representation
-    valid_powers = [k for k in product(range(-degree, degree + 1), repeat=3) if sum(abs(ki) for ki in k) == degree and sum(ki for ki in k)==0]
+    valid_powers = [k for k in product(range(-degree, degree + 1), repeat=3) if sum(abs(ki) for ki in k) <= degree and sum(ki for ki in k)==0]
 
     # Compute the design matrix
     design_matrix = []
@@ -177,7 +177,7 @@ def eval_poly_invar(theta1, theta2, theta3, coefficients, degree):
     z = np.exp(1j * np.array([theta1, theta2, theta3]))
 
     # Generate all valid powers of (k1, k2, k3) with sum(|k1| + |k2| + |k3|) == degree
-    valid_powers = [k for k in product(range(-degree, degree + 1), repeat=3) if sum(abs(ki) for ki in k) == degree and sum(ki for ki in k)==0]
+    valid_powers = [k for k in product(range(-degree, degree + 1), repeat=3) if sum(abs(ki) for ki in k) <= degree and sum(ki for ki in k)==0]
 
     # Evaluate the polynomial
     value = sum(coeff * np.prod(z**k) for coeff, k in zip(coefficients, valid_powers))
@@ -228,14 +228,14 @@ def compute_max_difference(N, degree, nb):
 
     # Generate points and compute the Gram matrix
     thetas = points_circle(N)
-    gram_matrices = gram_matrix(thetas)
+    gram_matrices = gram_matrix(N, thetas)
 
     # Compute target values
-    y = f(gram_matrices)
+    y = f(N,gram_matrices)
 
     # Create the design matrix and augment the target values
-    #X = design_matrix_unit_circle(thetas, degree)
-    X = design_matrix_MC(thetas, degree, nb)
+    X = design_matrix_unit_circle(thetas, degree)
+    #X = design_matrix_MC(thetas, degree, nb)
 
     augmented_y = augment_target_values(y, nb)
 
@@ -258,51 +258,82 @@ def compute_max_difference(N, degree, nb):
 
 
 if __name__ == "__main__":
-    max_differences = []
-    degree = 4
-    test_points = points_circle(50)
-    for N in range(200,500,50):
-        thetas = points_circle(N)
-        gram_matrices = gram_matrix(N, thetas)
-        X = design_matrix_orig(thetas, degree)
-        y = f(N, gram_matrices)
-        coeff = least_square(X, y)
-        max_difference = 0
-        poly_values =[] 
-        for theta1, theta2, theta3 in test_points:
-            poly_values.append(eval_poly_invar(theta1, theta2, theta3, coeff, degree))
-        y_test = f(50, gram_matrix(50, test_points))
-        max_differences.append(np.linalg.norm(poly_values-y_test))
-
     plt.figure()
     plt.yscale("log")
-    plt.plot([i for i in range(200,500,50)], max_differences, marker="o")
-    plt.title("Invariant representation error")
+    plt.title("Test1")
     plt.xlabel("Data points")
-    plt.ylabel("||Prediction||")
+    plt.ylabel("||Prediction-test||")
+    degrees = [4]
+    test_points = points_von_mises(50, 5)
+    for degree in degrees:
+        max_differences = []
+        for N in range(300,3000,100):
+            thetas = points_von_mises(N, 5)
+            gram_matrices = gram_matrix(N, thetas)
+            X = design_matrix_orig(thetas, degree)
+            y = f(N, gram_matrices)
+            coeff = least_square(X, y)
+            poly_values =[] 
+            for theta1, theta2, theta3 in test_points:
+                poly_values.append(eval_poly_invar(theta1, theta2, theta3, coeff, degree))
+            y_test = f(50, gram_matrix(50, test_points))
+            max_differences.append(1/50*np.linalg.norm(poly_values-y_test))
+
+        plt.plot([i for i in range(300,3000,100)], max_differences, marker="o", label=f'{degree}')
+    plt.legend()
+    plt.grid()
+    plt.show()
+    
+if __name__ == "__main__":
+    plt.figure()
+    plt.yscale("log")
+    plt.title("Test1")
+    plt.xlabel("Data points")
+    plt.ylabel("||Prediction-test||")
+    degrees = [2,4,6,8,10]
+    test_points = points_von_mises(15, 5)
+    for degree in degrees:
+        max_differences = []
+        for N in range(30,200,10):
+            thetas = points_von_mises(N, 5)
+            gram_matrices = gram_matrix(N, thetas)
+            X = design_matrix_orig(thetas, degree)
+            y = f(N, gram_matrices)
+            coeff = least_square(X, y)
+            poly_values =[] 
+            for theta1, theta2, theta3 in test_points:
+                poly_values.append(eval_poly_invar(theta1, theta2, theta3, coeff, degree))
+            y_test = f(15, gram_matrix(15, test_points))
+            max_differences.append(1/15*np.linalg.norm(poly_values-y_test))
+
+
+        plt.plot([i for i in range(30,200,10)], max_differences, marker="o", label=f'{degree}')
+    plt.legend()
     plt.grid()
     plt.show()
 
 
 
-if __name__ != "__main__":
-    # max_differences = []
-    # degrees = range(1, 11)
 
-    # for degree in degrees:
-    #     max_diff = compute_max_difference(N, degree)
-    #     max_differences.append(max_diff)
+if __name__ != "__main__":
     max_differences = []
-    degree = 4
-    nbs = range(10,20)
-    for nb in nbs:
-        rotations = np.random.uniform(0,2*np.pi, (nb,))
-        max_diff = compute_max_difference(N, degree,nb)
+    degrees = range(1, 12)
+    N=100
+    for degree in degrees:
+        rotations = np.random.uniform(0,2*np.pi, degree+1)
+        max_diff = compute_max_difference(N, degree, degree)
         max_differences.append(max_diff)
+    # max_differences = []
+    # degree = 4
+    # nbs = range(10,20)
+    # for nb in nbs:
+    #     rotations = np.random.uniform(0,2*np.pi, (nb,))
+    #     max_diff = compute_max_difference(N, degree,nb)
+    #     max_differences.append(max_diff)
     # Plot the results
     plt.figure()
     plt.yscale("log")
-    plt.plot(nbs, max_differences, marker="o")
+    plt.plot(degrees, max_differences, marker="o")
     plt.title("Max Difference vs number of rotations")
     plt.xlabel("Number of rotations")
     plt.ylabel("Max difference")
